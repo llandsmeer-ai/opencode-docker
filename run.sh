@@ -1,8 +1,11 @@
 #!/bin/bash
 
+# Resolve the directory containing this script, following symlinks
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+
 # Configuration
 IMAGE_NAME="ubuntu-opencode"
-DOCKERFILE="Dockerfile"
+DOCKERFILE="$SCRIPT_DIR/Dockerfile"
 
 PROJECT_DIR="project"
 
@@ -15,7 +18,7 @@ build_image() {
     echo "🔨 Building image from $DOCKERFILE..."
 
     (
-    cd /home/llandsmeer/tmp/opencode
+    cd "$SCRIPT_DIR"
     sudo docker build -t $IMAGE_NAME -f $DOCKERFILE .
     )
 
@@ -43,16 +46,23 @@ if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
     echo ""
     echo "Options:"
     echo "  (none)         Start or attach to the opencode container for the current directory"
-    echo "  rebuild        Force rebuild the Docker image"
+    echo "  --build        Build (or rebuild) the Docker image"
+    echo "  rebuild        Alias for --build"
+    echo "  --edit         Open the Dockerfile in \$EDITOR"
     echo "  --kill         Stop and remove all opencode containers"
     echo "  --clean        Alias for --kill"
     echo "  --help, -h     Show this help message"
     exit 0
 fi
 
-if [ "$1" == "rebuild" ]; then
-    echo "Force rebuild requested..."
+if [ "$1" == "--build" ] || [ "$1" == "rebuild" ]; then
+    echo "Building image..."
     build_image
+    exit 0
+fi
+
+if [ "$1" == "--edit" ]; then
+    ${EDITOR:-vi} "$DOCKERFILE"
     exit 0
 fi
 
