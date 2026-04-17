@@ -26,16 +26,33 @@ build_image() {
     echo "✅ Build successful."
 }
 
+kill_containers() {
+    echo "Stopping and removing all running opencode containers..."
+    CONTAINERS=$(sudo docker ps -aq --filter "ancestor=$IMAGE_NAME")
+    if [ -z "$CONTAINERS" ]; then
+        echo "No opencode containers found."
+    else
+        sudo docker stop $CONTAINERS 2>/dev/null
+        sudo docker rm $CONTAINERS 2>/dev/null
+        echo "Done."
+    fi
+}
+
 if [ "$1" == "rebuild" ]; then
     echo "Force rebuild requested..."
     build_image
     exit 0
 fi
 
+if [ "$1" == "--kill" ] || [ "$1" == "--clean" ]; then
+    kill_containers
+    exit 0
+fi
+
 if [ "$(sudo docker ps -q -f name=$CONTAINER_NAME)" ]; then
     echo "🔄 Container '$CONTAINER_NAME' is already running."
     echo "🔗 Connecting to OpenCode..."
-    exec sudo docker exec -it -w /home/ubuntu/$PROJECT_DIR $CONTAINER_NAME /bin/bash -c "/home/ubuntu/.opencode/bin/opencode ."
+    exec sudo docker exec -it -e 'OPENCODE_PERMISSION="allow"' -w /home/ubuntu/$PROJECT_DIR $CONTAINER_NAME /bin/bash -c "/home/ubuntu/.opencode/bin/opencode ."
 elif [ "$(sudo docker ps -aq -f name=$CONTAINER_NAME)" ]; then
     echo "🔄 Container '$CONTAINER_NAME' exists but is stopped."
     echo "🗑️  Removing old container..."
@@ -64,7 +81,8 @@ sudo docker run -dit --name $CONTAINER_NAME \
     -v "$HOME/.gitconfig":/home/ubuntu/.gitconfig \
     -v "$LOCAL_AUTH_FILE":/home/ubuntu/.local/share/opencode/auth.json \
     -v "$LOCAL_AUTH_FILE":/home/ubuntu/.local/share/opencode/auth.json \
+    -e 'OPENCODE_PERMISSION="allow"' \
     $IMAGE_NAME /bin/bash
 
 echo "🔗 Connecting to OpenCode..."
-exec sudo docker exec -it -w /home/ubuntu/$PROJECT_DIR $CONTAINER_NAME /bin/bash -c "/home/ubuntu/.opencode/bin/opencode ."
+exec sudo docker exec -it -e 'OPENCODE_PERMISSION="allow"' -w /home/ubuntu/$PROJECT_DIR $CONTAINER_NAME /bin/bash -c "/home/ubuntu/.opencode/bin/opencode ."
