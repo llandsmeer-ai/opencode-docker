@@ -38,6 +38,18 @@ kill_containers() {
     fi
 }
 
+if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
+    echo "Usage: $(basename "$0") [OPTION]"
+    echo ""
+    echo "Options:"
+    echo "  (none)         Start or attach to the opencode container for the current directory"
+    echo "  rebuild        Force rebuild the Docker image"
+    echo "  --kill         Stop and remove all opencode containers"
+    echo "  --clean        Alias for --kill"
+    echo "  --help, -h     Show this help message"
+    exit 0
+fi
+
 if [ "$1" == "rebuild" ]; then
     echo "Force rebuild requested..."
     build_image
