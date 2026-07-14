@@ -1,8 +1,9 @@
 # Claude Code in a box: a self-contained dev container with the tools you
 # actually reach for during a session (Python, Node/TS, Rust, Go, headless
-# Chrome + Playwright). Auth and settings are shared with the host at runtime
-# by bind-mounting ~/.claude and ~/.claude.json (see run.sh) -- nothing secret
-# is baked into the image.
+# Chrome + Playwright). Auth and settings are seeded per-container from the host
+# on first launch into a private, persistent state dir that's bind-mounted at
+# runtime (see run.sh) -- nothing secret is baked into the image, and each
+# container is standalone so concurrent sessions never clobber each other.
 
 FROM ubuntu:24.04
 
@@ -65,6 +66,22 @@ RUN npm install -g playwright @playwright/test \
     && chmod -R a+rx /ms-playwright
 
 # ---------------------------------------------------------------------------
+# CUDA 13 toolkit (nvcc, cuBLAS, cuFFT, ...). Only the toolkit — the driver
+# libraries come from the host at runtime via the NVIDIA container toolkit
+# (`--gpus`, see run.sh), so no driver packages are installed here.
+# ---------------------------------------------------------------------------
+RUN curl -fsSL https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb \
+      -o /tmp/cuda-keyring.deb \
+    && dpkg -i /tmp/cuda-keyring.deb \
+    && rm /tmp/cuda-keyring.deb \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends cuda-toolkit-13 \
+    && rm -rf /var/lib/apt/lists/*
+ENV PATH="/usr/local/cuda/bin:${PATH}" \
+    LD_LIBRARY_PATH="/usr/local/cuda/lib64"
+RUN nvcc --version
+
+# ---------------------------------------------------------------------------
 # Python scientific / tooling stack (system-wide via --break-system-packages)
 # ---------------------------------------------------------------------------
 RUN python3 -m pip install --break-system-packages --no-cache-dir \
@@ -86,8 +103,9 @@ RUN usermod -aG sudo ubuntu \
 USER ubuntu
 WORKDIR /home/ubuntu
 
-# Config/state dirs. .claude and .claude.json are bind-mounted from the host
-# at runtime for shared auth + settings; create them so the mounts have a home.
+# Config/state dirs. .claude and .claude.json are bind-mounted at runtime from a
+# per-container state dir on the host (seeded from ~/.claude on first launch);
+# create them so the mounts have a home.
 RUN mkdir -p /home/ubuntu/.ssh /home/ubuntu/.claude /home/ubuntu/.local/bin \
     && echo '{}' > /home/ubuntu/.claude.json
 
